@@ -1,1 +1,4 @@
 
+This script contains code to process genes.results control and sample files with DSEQ2 as instructed on https://introtogenomics.readthedocs.io/en/latest/2021.11.11.DeseqTutorial.html 
+
+It then uses enrichr for motif enrichment an instructed here - https://cran.r-project.org/web/packages/enrichR/vignettes/enrichR.html
