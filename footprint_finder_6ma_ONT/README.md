@@ -1,5 +1,5 @@
 # Flow of information
-## Footprint finder 
+## Footprint finder - flow of information
 
 Import 6mA pileup 
         |>
