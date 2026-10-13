@@ -1,0 +1,100 @@
+INTERSECTING FOOTPRINTS WITH CHIP-SEQ
+
+library(GenomicRanges)
+library("rtracklayer")
+library(readr)
+require(devtools)
+library(tidyr)
+library(dplyr)
+
+
+##Using ChIP_seq data to find likely HNF1A footprints
+
+extraCols_narrowPeak <- c(signalValue = "numeric", pValue = "numeric", qValue = "numeric", peak = "numeric")
+
+HNF1A_gr <- import("/penrose/projects/data/HNF1A_chip_Teo_2024/alignments-bw2-bsa-hg38/SRR19668418_GSM6248576_Islets_HNF1A_ab96777_-_chip_Homo_sapiens_ChIP-Seq/macs3_SRR19668418_GSM6248576_Islets_HNF1A_ab96777_-_chip_Homo_sapiens_ChIP-Seq_peaks.narrowPeak", format = "BED", extraCols = extraCols_narrowPeak)
+
+S4_large_footprints <- read.delim("/penrose/projects/J.Roberts12/Footprint_calling/S4/110326_h1_S4_hia5_hg38_pileup_large_footprints_wholegen.tsv")
+
+gr_S4_large_footprints <- makeGRangesFromDataFrame(S4_large_footprints,
+                                    keep.extra.columns=FALSE,
+                                    seqnames.field=c("peak_chromosome"),
+                                    start.field="g_start",
+                                    end.field=c("g_end"),
+                                    starts.in.df.are.0based=FALSE)
+                                    
+HNF1A_footprints <- subsetByOverlaps(HNF1A_gr, gr_S4_large_footprints)
+
+export.bed(HNF1A_footprints, con = "/penrose/projects/J.Roberts12/Footprint_calling/S4/HNF1A_110326_h1_S4_hia5_hg38_pileup_large_footprints_wholegen.bed")
+
+## Histogram of the Nnocall values in all footprints found in S4 hia5 data 
+
+extraCols_pileup_data <- c(
+  Nvalid_cov       = "integer",
+  percent_modified = "numeric",
+  Nmod             = "integer",
+  Ncanonical       = "integer",
+  Nother_mod       = "integer",
+  Ndelete          = "integer",
+  Nfail            = "integer",
+  Ndiff            = "integer",
+  Nnocall          = "integer"
+  )
+  
+pileup_data_from_footprints <- import("/penrose/projects/J.Roberts12/Footprint_calling/S4/hg38_Stage4_H1_largefootprints_110326_h1_S4_hia5_hg38_pileup_data.bed", format = "BED", extraCols = extraCols_pileup_data)
+
+
+S4_large_footprints <- read.delim("/penrose/projects/J.Roberts12/Footprint_calling/S4/110326_h1_S4_hia5_hg38_pileup_large_footprints_wholegen.tsv")
+
+gr_S4_large_footprints <- makeGRangesFromDataFrame(S4_large_footprints,
+                                    keep.extra.columns=FALSE,
+                                    seqnames.field=c("peak_chromosome"),
+                                    start.field="g_start",
+                                    end.field=c("g_end"),
+                                    starts.in.df.are.0based=FALSE)
+                                    
+footprint_pileup_data <- findOverlaps(pileup_data_from_footprints, gr_S4_large_footprints)
+
+
+footprints_pileup_data <- vector("list", length(gr_S4_large_footprints))
+
+#Getting pileup data from the regions marked as footprints 
+for (i in seq_along(gr_S4_large_footprints)) {
+	
+	footprints_pileup_data [[i]] <- subsetByOverlaps(pileup_data_from_footprints, gr_S4_large_footprints[i])
+}
+
+footprint_average_Nnocall <- vector("list", length(gr_S4_large_footprints))
+
+#Calculating the average Nnocall value in each footprint to determine if the Nnocall value in the ACACA artefact footprint is alot higher than usual
+
+for (i in seq_along(footprints_pileup_data)) {
+
+	footprint <- footprints_pileup_data[[i]]
+	
+	footprint_average_Nnocall[i] <- mean(footprint$Nnocall, na.rm = TRUE)
+}
+
+
+footprint_average_Nnocall_hist <- unlist(footprint_average_Nnocall)
+
+footprint_average_Nnocall_hist_df <- data.frame(footprint = seq_along(footprint_average_Nnocall_hist), average_Nnocall = footprint_average_Nnocall_hist)
+
+
+pdf("/penrose/projects/J.Roberts12/Footprint_calling/S4/hg38_Stage4_H1_largefootprints_110326_h1_S4_hia5_hg38_pileup_data_Average_Nnocall_histogram.pdf", width = 16, height = 8)
+
+hist_span <- ggplot(footprint_average_Nnocall_hist_df, aes(x = average_Nnocall)) + 
+	geom_histogram(binwidth = 1, fill = "#69b3a2", color="#e9ecef", alpha=0.9) +  
+	ggtitle("Bin size = 2") + 
+	labs( 
+		x = "Average Nnocall value",
+		y = "Number of footprints",
+		title = "Distribution of Nnocall reads in footprints") +
+	theme(plot.title = element_text(size=15)) + 
+	theme_classic()
+	
+print(hist_span)
+
+dev.off()
+
+
