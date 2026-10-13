@@ -141,8 +141,3 @@ confirmed <- all_footprints_df[all_footprints_df$flank_ok, ]
 
 write_tsv(confirmed,"/penrose/projects/J.Roberts12/haplotype_specific_6ma/differentiation_foxa2_diff_meth/footprint_finding/110326_h1_S4_hia5_hg38_pileup_large_footprints_wholegen.tsv")
 
-
-
-footprint_sequences <- getSeq(BSgenome.Hsapiens.UCSC.hg38, confirmed_gr))
-
-writeXStringSet(footprint_sequences, filepath = "/penrose/projects/J.Roberts12/footprint_finder/hg38_Stage4_H1_largefootprints_fasta.fa")
