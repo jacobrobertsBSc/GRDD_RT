@@ -1,15 +1,11 @@
-#Fire peaks granges - fire_gr
+#Read in fire peaks for the cell type as genomic ranges 
 
-extraCols_narrowPeak <- c(signalValue = "numeric", pValue = "numeric",
-                          qValue = "numeric", peak = "numeric", sample = "character")
-
-CTCF_chip_gr <- import("/penrose/projects/data/pancreatic_progenitor/geusz/chip/aligns-bw2-bsa-hg38/SRR11590376_GSM4490982_Cyt49_PP2.ChIP-Seq.CTCF.replicate.2_Homo_sapiens_ChIP-Seq/macs3_SRR11590376_GSM4490982_Cyt49_PP2.ChIP-Seq.CTCF.replicate.2_Homo_sapiens_ChIP-Seq_peaks.narrowPeak", format = "BED", extraCols = extraCols_narrowPeak)
-
-
+#Read in footprints or used confirmed object output of the footprint finder 
 confrimed_gr  <- GRanges(seqnames = confirmed$peak_chromosome, ranges = IRanges(start = confirmed$g_start, end = confirmed$g_end))
 
 #https://web.mit.edu/~r/current/arch/i386_linux26/lib/R/library/IRanges/html/findOverlaps-methods.html
 #Using 1 or 0 to mark if there is a footprint within the fire_gr peaks 
+
 fire_gr$footprint_present <- as.integer(overlapsAny(fire_gr, confirmed_gr))
 
 tf_files_PP2_most_likePP4 <- list(
@@ -20,10 +16,14 @@ HNF6 = "/penrose/projects/data/pancreatic_progenitor/geusz/chip/aligns-bw2-bsa-h
 FOXA2 = "/penrose/projects/data/pancreatic_progenitor/geusz/chip/aligns-bw2-bsa-hg38/SRR11825816_GSM4462994_Cyt49_PP2.ChIP-Seq.FOXA2.replicate.2_Homo_sapiens_ChIP-Seq/macs3_SRR11825816_GSM4462994_Cyt49_PP2.ChIP-Seq.FOXA2.replicate.2_Homo_sapiens_ChIP-Seq_peaks.narrowPeak"
 )
 
-#https://web.mit.edu/~r/current/arch/i386_linux26/lib/R/library/IRanges/html/findOverlaps-methods.html
+
+extraCols_narrowPeak <- c(signalValue = "numeric", pValue = "numeric",
+                          qValue = "numeric", peak = "numeric", sample = "character")
+
 for(tf in names(tf_files_PP2_most_likePP4)) {
 tf_gr <- import(tf_files_PP2_most_likePP4[[tf]], format = "BED", extraCols = extraCols_narrowPeak)
 
+#https://web.mit.edu/~r/current/arch/i386_linux26/lib/R/library/IRanges/html/findOverlaps-methods.html
 mcols(fire_gr)[[tf]] <- as.integer(overlapsAny(fire_gr, tf_gr))
 }
 
