@@ -1,0 +1,68 @@
+#Fire peaks granges - fire_gr
+
+extraCols_narrowPeak <- c(signalValue = "numeric", pValue = "numeric",
+                          qValue = "numeric", peak = "numeric", sample = "character")
+
+CTCF_chip_gr <- import("/penrose/projects/data/pancreatic_progenitor/geusz/chip/aligns-bw2-bsa-hg38/SRR11590376_GSM4490982_Cyt49_PP2.ChIP-Seq.CTCF.replicate.2_Homo_sapiens_ChIP-Seq/macs3_SRR11590376_GSM4490982_Cyt49_PP2.ChIP-Seq.CTCF.replicate.2_Homo_sapiens_ChIP-Seq_peaks.narrowPeak", format = "BED", extraCols = extraCols_narrowPeak)
+
+
+confrimed_gr  <- GRanges(seqnames = confirmed$peak_chromosome, ranges = IRanges(start = confirmed$g_start, end = confirmed$g_end))
+
+#https://web.mit.edu/~r/current/arch/i386_linux26/lib/R/library/IRanges/html/findOverlaps-methods.html
+#Using 1 or 0 to mark if there is a footprint within the fire_gr peaks 
+fire_gr$footprint_present <- as.integer(overlapsAny(fire_gr, confirmed_gr))
+
+tf_files_PP2_most_likePP4 <- list(
+CTCF = "/penrose/projects/data/pancreatic_progenitor/geusz/chip/aligns-bw2-bsa-hg38/SRR11590376_GSM4490982_Cyt49_PP2.ChIP-Seq.CTCF.replicate.2_Homo_sapiens_ChIP-Seq/macs3_SRR11590376_GSM4490982_Cyt49_PP2.ChIP-Seq.CTCF.replicate.2_Homo_sapiens_ChIP-Seq_peaks.narrowPeak",
+H3K4me3 = "/penrose/projects/data/pancreatic_progenitor/geusz/chip/aligns-bw2-bsa-hg38/SRR11862545_GSM4575688_Cyt49_PP2.ChIP-Seq.H3K4me3.replicate.2_Homo_sapiens_ChIP-Seq/macs3_SRR11862545_GSM4575688_Cyt49_PP2.ChIP-Seq.H3K4me3.replicate.2_Homo_sapiens_ChIP-Seq_peaks.narrowPeak",
+PDX1 = "/penrose/projects/data/pancreatic_progenitor/geusz/chip/aligns-bw2-bsa-hg38/SRR11825822_GSM4463004_Cyt49_PP2.ChIP-Seq.PDX1.replicate.2_Homo_sapiens_ChIP-Seq/macs3_SRR11825822_GSM4463004_Cyt49_PP2.ChIP-Seq.PDX1.replicate.2_Homo_sapiens_ChIP-Seq_peaks.narrowPeak",
+HNF6 = "/penrose/projects/data/pancreatic_progenitor/geusz/chip/aligns-bw2-bsa-hg38/SRR11825820_GSM4463002_Cyt49_PP2.ChIP-Seq.HNF6.replicate.2_Homo_sapiens_ChIP-Seq/macs3_SRR11825820_GSM4463002_Cyt49_PP2.ChIP-Seq.HNF6.replicate.2_Homo_sapiens_ChIP-Seq_peaks.narrowPeak",
+FOXA2 = "/penrose/projects/data/pancreatic_progenitor/geusz/chip/aligns-bw2-bsa-hg38/SRR11825816_GSM4462994_Cyt49_PP2.ChIP-Seq.FOXA2.replicate.2_Homo_sapiens_ChIP-Seq/macs3_SRR11825816_GSM4462994_Cyt49_PP2.ChIP-Seq.FOXA2.replicate.2_Homo_sapiens_ChIP-Seq_peaks.narrowPeak"
+)
+
+#https://web.mit.edu/~r/current/arch/i386_linux26/lib/R/library/IRanges/html/findOverlaps-methods.html
+for(tf in names(tf_files_PP2_most_likePP4)) {
+tf_gr <- import(tf_files_PP2_most_likePP4[[tf]], format = "BED", extraCols = extraCols_narrowPeak)
+
+mcols(fire_gr)[[tf]] <- as.integer(overlapsAny(fire_gr, tf_gr))
+}
+
+#To store the output table for the fisher.test scores 
+tf_results <- data.frame(
+  TF = character(),
+  Odds_ratio = numeric(),
+  P_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (tf in names(tf_files_PP2_most_likePP4)) {
+#create a contingency table for the TF
+  fisher_table <- table(
+    fire_gr$footprint_present,
+    mcols(fire_gr)[[tf]]
+  )
+
+  test <- fisher.test(fisher_table)
+#Adding a new row to the data.frame with the data from the temporary data frame for each iteration 
+  tf_results <- rbind(tf_results,
+    data.frame(
+      TF = tf,
+      Odds_ratio = unname(test$estimate),
+      P_value = test$p.value
+    )
+  )
+}
+
+tf_results
+
+#One way to get the sequneces from the fotprints is to extract them as a bed file and then use bedtools getFasta
+
+footprint_bed <- data.frame(
+	chrom = confirmed$peak_chromosome,
+	start = confirmed$g_start,
+	end = confirmed$g_end, 
+	strand = ".")
+	
+export.bed(footprint_bed, con = "/penrose/projects/J.Roberts12/footprint_finder/hg38_Stage4_H1_largefootprints.bed")
+
+#another is to use getSeq - https://www.rdocumentation.org/packages/Biostrings/versions/2.40.2/topics/getSeq
